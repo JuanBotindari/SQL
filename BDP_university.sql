@@ -276,3 +276,79 @@ GROUP BY materia_id;
 SELECT materia_id, AVG(nota_final) AS nota_media_rendimiento
 FROM base_rendimiento.rendimiento
 GROUP BY materia_id;
+
+
+
+
+
+------------------ 6. Modelo predictivo de ML - Linnear Regression
+------ En este caso vamos a hacer una regresión lineal para tratar de predecir la nota final de un alumno
+
+/* 
+Modelo Python y SQL
+
+import pandas as pd
+from sqlalchemy import create_engine
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import cross_val_score
+
+# Establecer conexión con la base de datos
+engine = create_engine(       ACA DEBERIA ESTAR LA CONEZION DE LA BASE DE DATOS )
+connection = engine.connect()  )
+
+# Definir la consulta SQL
+query = """
+SELECT pi.edad, pi.horas_trabajadas_sem, rh.nota_cursada, rh.anio_academico_materia, rh.nota_final
+FROM base_alumno.personal_informacion pi
+JOIN base_rendimiento.rendimiento_historico rh ON pi.alumno_id = rh.alumno_id
+"""
+
+
+df = pd.read_sql_query(query, engine)
+
+# Definir columnas numéricas y categóricas
+num_features = ['edad', 'horas_trabajadas_sem', 'nota_cursada', 'anio_academico_materia']
+cat_features = ['beca', 'plan_version_desc']
+
+# Definir el preprocesamiento para las columnas numéricas y categóricas
+num_transformer = Pipeline(steps=[
+    ('imputer', SimpleImputer(strategy='mean'))
+])
+
+cat_transformer = Pipeline(steps=[
+    ('imputer', SimpleImputer(strategy='most_frequent')),
+    ('onehot', OneHotEncoder(handle_unknown='ignore'))
+])
+
+# Combinar preprocesadores
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', num_transformer, num_features),
+        ('cat', cat_transformer, cat_features)
+    ])
+
+# Definir el modelo de regresión lineal
+model = LinearRegression()
+
+# Combinar preprocesamiento y modelo en un pipeline
+clf = Pipeline(steps=[('preprocessor', preprocessor),
+                     ('classifier', model)])
+
+# Separar las variables predictoras (X) de la variable objetivo (Y)
+X = df[['edad', 'horas_trabajadas_sem', 'nota_cursada', 'anio_academico_materia']]
+Y = df['nota_final']
+
+# Realizar validación cruzada
+cv_scores = cross_val_score(clf, X, Y, cv=5)  # 5-fold cross validation
+
+# Imprimir los resultados de la validación cruzada
+print(f"Puntuaciones de Validación Cruzada: {cv_scores}")
+print(f"Puntuación Media de Validación Cruzada: {cv_scores.mean()}")
+
+
+
+*/
