@@ -104,7 +104,7 @@ CREATE TABLE equivalencias_materia (
 ------ Luego de crear las bases por primera vez, es momento de trabajar en migrar la informacion.
 ------ Lo hago de forma sencilla como si fuera un excel. 
 
--- Para cargar datos en la tabla personal_informacion
+-- DATOS: personal_informacion
 LOAD DATA INFILE '/ruta/del/archivo/datos.csv'
 INTO TABLE base_alumno.personal_informacion
 FIELDS TERMINATED BY ',' 
@@ -112,7 +112,7 @@ ENCLOSED BY '"'
 LINES TERMINATED BY '\r\n' 
 IGNORE 1 LINES;
 
--- Para cargar datos en la tabla rama_familiar
+-- DATOS: rama_familiar
 LOAD DATA INFILE '/ruta/del/archivo/datos.csv'
 INTO TABLE base_alumno.rama_familiar
 FIELDS TERMINATED BY ',' 
@@ -120,7 +120,7 @@ ENCLOSED BY '"'
 LINES TERMINATED BY '\r\n' 
 IGNORE 1 LINES;
 
--- Para cargar datos en la tabla formacion_academica_previa
+-- DATOS: formacion_academica_previa
 LOAD DATA INFILE '/ruta/del/archivo/datos.csv'
 INTO TABLE base_alumno.formacion_academica_previa
 FIELDS TERMINATED BY ',' 
@@ -128,7 +128,7 @@ ENCLOSED BY '"'
 LINES TERMINATED BY '\r\n' 
 IGNORE 1 LINES;
 
--- Para cargar datos en la tabla situacion_academica
+-- DATOS: situacion_academica
 LOAD DATA INFILE '/ruta/del/archivo/datos.csv'
 INTO TABLE base_alumno.situacion_academica
 FIELDS TERMINATED BY ',' 
@@ -136,7 +136,7 @@ ENCLOSED BY '"'
 LINES TERMINATED BY '\r\n' 
 IGNORE 1 LINES;
 
--- Para cargar datos en la tabla rendimiento
+-- DATOS: rendimiento
 LOAD DATA INFILE '/ruta/del/archivo/datos.csv'
 INTO TABLE base_rendimiento.rendimiento
 FIELDS TERMINATED BY ',' 
@@ -144,7 +144,7 @@ ENCLOSED BY '"'
 LINES TERMINATED BY '\r\n' 
 IGNORE 1 LINES;
 
--- Para cargar datos en la tabla rendimiento_historico
+-- DATOS: rendimiento_historico
 LOAD DATA INFILE '/ruta/del/archivo/datos.csv'
 INTO TABLE base_rendimiento.rendimiento_historico
 FIELDS TERMINATED BY ',' 
@@ -152,7 +152,7 @@ ENCLOSED BY '"'
 LINES TERMINATED BY '\r\n' 
 IGNORE 1 LINES;
 
--- Para cargar datos en la tabla equivalencias_materia
+-- DATOS: equivalencias_materia
 LOAD DATA INFILE '/ruta/del/archivo/datos.csv'
 INTO TABLE base_rendimiento.equivalencias_materia
 FIELDS TERMINATED BY ',' 
@@ -166,30 +166,30 @@ IGNORE 1 LINES;
 ------ Luego de crear las bases por primera vez e ingresar los datos, hay que limpirlos
 ------ Por cuestiones de tiempo y proteccion, voy a hacer algunos ejemplos de lo que nos encontramos actualmente
 
--- Reemplazar NULLs en la columna egresado con 0
+-- Limpieza: egresado
 UPDATE rendimiento_historico
 SET egresado = COALESCE(egresado, 0)
 WHERE egresado IS NULL;
 
--- Eliminar registros donde la columna reinscripto tiene valor -1
+-- Limpieza: reinscripto
 DELETE FROM rendimiento
 WHERE reinscripto = -1;
 
--- Reemplazar edades menores a 18 con 18
+-- Limpieza: edad
 UPDATE personal_informacion
 SET edad = CASE
              WHEN edad < 18 THEN 18
              ELSE edad
           END;
 
--- Reemplazar "N" con 0 y "S" con 1 en la columna beca
+-- Limpieza: beca
 UPDATE situacion_academica
 SET beca = CASE
              WHEN beca = 'N' THEN 0
              WHEN beca = 'S' THEN 1
           END;
 
--- Reemplazar "Vigente" con 1 y "No Vigente" con 0 en la columna plan_version_desc
+-- Limpieza: plan_version_desc
 UPDATE situacion_academica
 SET plan_version_desc = CASE
                            WHEN plan_version_desc = 'Vigente' THEN 1
@@ -205,7 +205,15 @@ SET plan_version_desc = CASE
 ------ Una de las cosas que se va a hacer para manejar bases distintas, es trabajar con diferentes tablas dependiendo si es informacion corriente (año en curso) o no (año pasado)
 ------ por eso a fin de año migramos de una tabla a otra, SOLO si es diciembre, ya que ejecutar esto antes, migraria informacion incompleta
 
+-- Verificar si la fecha es diciembre
 IF MONTH(CURRENT_DATE()) = 12 THEN
+
+    -- Contar la cantidad de filas antes de ejecutar el código
+    DECLARE @count_rendimiento_anterior INT;
+    DECLARE @count_rendimiento_historico_anterior INT;
+
+    SELECT @count_rendimiento_anterior = COUNT(*) FROM base_rendimiento.rendimiento;
+    SELECT @count_rendimiento_historico_anterior = COUNT(*) FROM base_rendimiento.rendimiento_historico;
 
     -- Migrar datos de rendimiento a rendimiento_historico
     INSERT INTO base_rendimiento.rendimiento_historico (alumno_id, materia_id, anio_academico_materia, profesor_materia_id, nota_cursada, nota_final, intento_materia, egresado)
@@ -221,4 +229,50 @@ IF MONTH(CURRENT_DATE()) = 12 THEN
     UPDATE base_rendimiento.rendimiento
     SET reinscripto = 0;
 
+    -- Eliminar todos los datos de la tabla rendimiento
+    DELETE FROM base_rendimiento.rendimiento;
+
+    -- Verificar si la migración fue correcta
+    DECLARE @count_rendimiento_nuevo INT;
+    DECLARE @count_rendimiento_historico_nuevo INT;
+
+    SELECT @count_rendimiento_nuevo = COUNT(*) FROM base_rendimiento.rendimiento;
+    SELECT @count_rendimiento_historico_nuevo = COUNT(*) FROM base_rendimiento.rendimiento_historico;
+
+    IF @count_rendimiento_anterior = @count_rendimiento_nuevo AND @count_rendimiento_nuevo = 0 THEN
+        SELECT 'Migracion correcta' AS Resultado;
+    ELSE
+        SELECT 'Error en la migracion' AS Resultado;
+    END IF;
+
 END IF;
+
+
+
+------------------ 5. Consultas Ad-hoc
+------ Suponiendo que ahora somos analista de datos, y queremos ver ciertas variables.
+------ Cada consulta la insertamos en PowerBI, excel o donde la queramos consumir. 
+------ Por ejemplo lo podriamos poner en PowerBI y generar los graficos que necesitemos
+
+
+-- Consulta 1: Quiero ver la cantidad de alumnos que tengo por cada versión del plan y luego ver la nota media usando las tablas de rendimiento_historico y base alumno
+SELECT plan_version_desc, COUNT(*) AS cantidad_alumnos, AVG(nota_final) AS nota_media
+FROM base_alumno.situacion_academica
+JOIN base_rendimiento.rendimiento_historico ON base_alumno.situacion_academica.alumno_id = base_rendimiento.rendimiento_historico.alumno_id
+GROUP BY plan_version_desc;
+
+
+-- Consulta 2: Quiero que me junte los profesores y ver la nota media que tengo para ver si tengo alguna desviación. Usa tabla rendimiento_historico
+SELECT profesor_materia_id, AVG(nota_final) AS nota_media
+FROM base_rendimiento.rendimiento_historico
+GROUP BY profesor_materia_id;
+
+
+-- Consulta 3: Quiero ver la nota media por cada materia en la tabla rendimiento_historico y la nota media por cada materia en la tabla rendimiento 
+SELECT materia_id, AVG(nota_final) AS nota_media_rendimiento_historico
+FROM base_rendimiento.rendimiento_historico
+GROUP BY materia_id;
+
+SELECT materia_id, AVG(nota_final) AS nota_media_rendimiento
+FROM base_rendimiento.rendimiento
+GROUP BY materia_id;
