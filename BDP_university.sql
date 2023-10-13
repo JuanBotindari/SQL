@@ -310,11 +310,12 @@ JOIN base_rendimiento.rendimiento_historico rh ON pi.alumno_id = rh.alumno_id
 
 df = pd.read_sql_query(query, engine)
 
-# Definir columnas numéricas y categóricas
+
+''' Definir columnas numéricas y categóricas '''
 num_features = ['edad', 'horas_trabajadas_sem', 'nota_cursada', 'anio_academico_materia']
 cat_features = ['beca', 'plan_version_desc']
 
-# Definir el preprocesamiento para las columnas numéricas y categóricas
+''' Definir el preprocesamiento para las columnas numéricas y categóricas '''
 num_transformer = Pipeline(steps=[
     ('imputer', SimpleImputer(strategy='mean'))
 ])
@@ -324,31 +325,49 @@ cat_transformer = Pipeline(steps=[
     ('onehot', OneHotEncoder(handle_unknown='ignore'))
 ])
 
-# Combinar preprocesadores
+''' Combinar preprocesadores '''
 preprocessor = ColumnTransformer(
     transformers=[
         ('num', num_transformer, num_features),
         ('cat', cat_transformer, cat_features)
     ])
 
-# Definir el modelo de regresión lineal
+''' Definir el modelo de regresión lineal '''
 model = LinearRegression()
 
-# Combinar preprocesamiento y modelo en un pipeline
+''' Combinar preprocesamiento y modelo en un pipeline '''
 clf = Pipeline(steps=[('preprocessor', preprocessor),
                      ('classifier', model)])
 
-# Separar las variables predictoras (X) de la variable objetivo (Y)
+''' Separar las variables predictoras (X) de la variable objetivo (Y) '''
 X = df[['edad', 'horas_trabajadas_sem', 'nota_cursada', 'anio_academico_materia']]
 Y = df['nota_final']
 
-# Realizar validación cruzada
-cv_scores = cross_val_score(clf, X, Y, cv=5)  # 5-fold cross validation
+''' Realizar validación cruzada '''
+cv_scores = cross_val_score(clf, X, Y, cv=10)  
 
-# Imprimir los resultados de la validación cruzada
+''' Imprimir los resultados de la validación cruzada '''
 print(f"Puntuaciones de Validación Cruzada: {cv_scores}")
 print(f"Puntuación Media de Validación Cruzada: {cv_scores.mean()}")
 
 
 
 */
+
+
+
+------------------ 7. Usuarios
+------
+
+
+-- Crear usuario administrador con privilegios de administración
+CREATE USER 'administrador'@'localhost' IDENTIFIED BY 'contraseña_admin';
+GRANT ALL PRIVILEGES ON *.* TO 'administrador'@'localhost';
+
+-- Crear usuario editor con permisos de edición
+CREATE USER 'editor'@'localhost' IDENTIFIED BY 'contraseña_editor';
+GRANT INSERT, UPDATE, DELETE ON nombre_basedatos.* TO 'editor'@'localhost';
+
+-- Crear usuario consultor con permisos de consulta
+CREATE USER 'consultor'@'localhost' IDENTIFIED BY 'contraseña_consultor';
+GRANT SELECT ON nombre_basedatos.* TO 'consultor'@'localhost';
